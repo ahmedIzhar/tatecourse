@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Course</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .download-container {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .download-container a {
+            text-decoration: none;
+            color: white;
+            background-color: #007bff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .download-container a:hover {
+            background-color: #0056b3;
+        }
+        img {
+            margin-top: 20px;
+            max-width: 700px;
+            height: 700px;
+            margin-bottom: 20px;
+            border: solid 1px black;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <img src="screen.png" alt="Screen Image">
+    <div class="download-container">
+        <a href="javascript:void(0);" onclick="checkAndInitiatePayment('AndrewTate')">Download Andrew Tate Course @ just 6 rupees</a>
+    </div>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+       async function checkAndInitiatePayment(story) {
+    let purchasedStories = JSON.parse(localStorage.getItem('purchasedStories')) || [];
+    let userPhone = localStorage.getItem('userPhone');
+
+    if (purchasedStories.includes(story)) {
+        window.location.href = story + '.html';
+        return;
+    }
+
+    if (!userPhone) {
+        userPhone = prompt("Please enter your phone number (10 digits):");
+        if (!/^\d{10}$/.test(userPhone)) {
+            alert("Please enter a valid 10-digit phone number.");
+            return;
+        }
+        localStorage.setItem('userPhone', userPhone);
+    }
+
+    try {
+        console.log("Creating order...");
+        const response = await fetch('/api/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 8 })  // Pass amount as 8 rupees
+        });
+
+        const { orderId } = await response.json();
+        console.log("Order ID received:", orderId);
+        if (orderId) {
+            initiatePayment(story, userPhone, orderId);
+        } else {
+            alert("Failed to create an order. Please try again.");
+        }
+    } catch (error) {
+        console.error("Error creating order:", error);
+        alert("There was an error creating your order. Please try again.");
+    }
+}
+ function initiatePayment(story, userPhone, orderId) {
+            localStorage.setItem('selectedStory', story);
+
+            const options = {
+                "key": "rzp_live_i3ZxPZvkJubDIv",  // Your Razorpay API Key
+                "amount": 8,  // Amount in paise (₹8 = 800 paise)
+                "currency": "INR",  // Currency
+                "name": "WhisperInk",  // Your company name
+                "description": "Payment for Story Access",
+                "image": "logo.png",  // Logo image
+                "order_id": orderId,
+                "handler": async function (response) {
+                    alert("Payment Successful. Payment ID: " + response.razorpay_payment_id);
+
+                    let purchasedStories = JSON.parse(localStorage.getItem('purchasedStories')) || [];
+                    purchasedStories.push(story);
+                    localStorage.setItem('purchasedStories', JSON.stringify(purchasedStories));
+
+                    await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            paymentId: response.razorpay_payment_id,
+                            orderId: orderId,
+                            story: story,
+                            userId: userPhone
+                        })
+                    });
+
+                    window.location.href = story + '.html';
+                },
+                "prefill": {
+                    "contact": userPhone
+                },
+                "modal": {
+                    "ondismiss": function () {
+                        if (confirm("Are you sure you want to close the payment form?")) {
+                            console.log("Payment form closed by the user.");
+                        } else {
+                            console.log("User chose to continue with payment.");
+                        }
+                    }
+                },
+                "payment_capture": 1,  // Auto-capture payment after successful payment
+            };
+
+            console.log("Opening Razorpay payment form...");
+            var rzp = new Razorpay(options);
+            rzp.open();
+        }
+    </script>
+</body>
+</html>
